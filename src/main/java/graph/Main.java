@@ -1,14 +1,17 @@
 package graph;
 
-import graph.util.Metrics;
-import graph.util.SimpleMetrics;
 import graph.scc.CondensationGraph;
 import graph.scc.TarjanSCC;
 import graph.topo.TopologicalSort;
 import graph.dagsp.DagShortestPath;
 import graph.util.GraphParser;
+import graph.util.AnalysisResult;
+import graph.util.Operation;
+import graph.util.ResultExporter;
+import graph.util.Metrics;
+import graph.util.SimpleMetrics;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -22,7 +25,9 @@ public class Main {
                 "large_1.json", "large_2.json", "large_3.json"
         };
 
-        System.out.println("--- START OF FULL BATCH TESTING (SCC + Condensation + Topological Sort + Dag Shortest Path) ---");
+        List<AnalysisResult> allResults = new ArrayList<>();
+
+        System.out.println("--- START OF BATCH TESTING ---");
 
         TarjanSCC sccFinder = new TarjanSCC();
         CondensationGraph dagBuilder = new CondensationGraph();
@@ -30,83 +35,75 @@ public class Main {
         DagShortestPath pathFinder = new DagShortestPath();
 
         for (String fileName : testFiles) {
-            String filePath = "data/graphs/" + fileName;
-            System.out.println("\n---------------------------------------------------");
-            System.out.println("--- File name: " + fileName + " ---");
+            System.out.println("  -> Analyse of file: " + fileName + "...");
 
             try {
+                AnalysisResult result = new AnalysisResult(fileName);
+
                 Metrics loadMetrics = new SimpleMetrics();
                 loadMetrics.startTimer();
-                Graph graph = GraphParser.loadGraph(filePath);
+                Graph graph = GraphParser.loadGraph("data/graphs/" + fileName);
                 loadMetrics.stopTimer();
-                System.out.println("Graph '" + fileName + "' loaded (Vertices: " + graph.getV() + ", Edges: " + graph.getEdges().size() + ")");
-                System.out.println("  -> Current node (source): " + graph.getSource());
-                System.out.println("  -> Metrics (Load): " + String.format("%.4f ms", loadMetrics.getElapsedTimeNano() / 1_000_000.0));
 
+                result.loadTimeMs = loadMetrics.getElapsedTimeMillis();
+                result.n = graph.getV();
+                result.e = graph.getE();
 
-                System.out.println("\n[Find SCC (Tarjan)]");
                 Metrics sccMetrics = new SimpleMetrics();
                 List<List<Integer>> sccs = sccFinder.findSccs(graph, sccMetrics);
-                System.out.println("Found SCC: " + sccs.size());
-                System.out.println("Metrics (SCC): \n" + sccMetrics);
 
-                System.out.println("\n[Building Condensation Graph]");
+                result.sccCount = sccs.size();
+                result.sccTimeMs = sccMetrics.getElapsedTimeMillis();
+                result.sccDfsVisits = sccMetrics.getCount(Operation.DFS_VISIT);
+                result.sccDfsEdges = sccMetrics.getCount(Operation.DFS_EDGE_TRAVERSAL);
+
                 Graph condensationDag = dagBuilder.build(graph, sccs);
-                System.out.println("Condensation Graph (DAG) built.");
-                System.out.println("  -> New vertices (SCC): " + condensationDag.getV());
-                System.out.println("  -> New edges (between SCC): " + condensationDag.getEdges().size());
 
-                System.out.println("\n[Topological Sort (Kahn)]");
+                result.dagNodes = condensationDag.getV();
+                result.dagEdges = condensationDag.getE();
+
                 Metrics topoMetrics = new SimpleMetrics();
                 List<Integer> sortedOrder = topoSorter.sort(condensationDag, topoMetrics);
-                System.out.println("Topological order (SCC-nodes) found.");
-                System.out.println("Metrics (Topo): \n" + topoMetrics);
 
-                System.out.println("\n[Search Paths in DAG]");
+                result.topoTimeMs = topoMetrics.getElapsedTimeMillis();
+                result.topoPushes = topoMetrics.getCount(Operation.TOPO_QUEUE_PUSH);
+                result.topoPops = topoMetrics.getCount(Operation.TOPO_QUEUE_POP);
 
-                int originalSource = graph.getSource();
-                int sccSourceNode = dagBuilder.getVertexToSccIdMap()[originalSource];
-                System.out.println("  -> Original 'source' " + originalSource + " is located in the SCC node #" + sccSourceNode);
+                int sccSourceNode = condensationDag.getSource();
 
                 Metrics spMetrics = new SimpleMetrics();
                 pathFinder.findShortestPaths(condensationDag, sccSourceNode, sortedOrder, spMetrics);
-                double[] shortestDists = pathFinder.getDistances();
-                System.out.println("\n  --- Shortest Paths from SCC #" + sccSourceNode + " ---");
-                for(int i=0; i<shortestDists.length && i < 10; i++) {
-                    System.out.printf("  -> to SCC #%d: %s%n", i,
-                            (shortestDists[i] == Double.POSITIVE_INFINITY) ? "UNREACHABLE" : shortestDists[i]);
-                }
-                System.out.println("  Metrics (ShortestPath): \n" + spMetrics);
+
+                result.spTimeMs = spMetrics.getElapsedTimeMillis();
+                result.spRelaxations = spMetrics.getCount(Operation.DAG_RELAXATION);
 
                 Metrics lpMetrics = new SimpleMetrics();
                 pathFinder.findLongestPaths(condensationDag, sccSourceNode, sortedOrder, lpMetrics);
                 double[] longestDists = pathFinder.getDistances();
 
+                result.lpTimeMs = lpMetrics.getElapsedTimeMillis();
+                result.lpRelaxations = lpMetrics.getCount(Operation.DAG_RELAXATION);
+
                 double criticalPathLength = 0;
-                int criticalPathEndNode = -1;
-                for(int i=0; i<longestDists.length; i++) {
-                    if (longestDists[i] > criticalPathLength && longestDists[i] != Double.NEGATIVE_INFINITY) {
-                        criticalPathLength = longestDists[i];
-                        criticalPathEndNode = i;
+                for (double dist : longestDists) {
+                    if (dist != Double.NEGATIVE_INFINITY && dist > criticalPathLength) {
+                        criticalPathLength = dist;
                     }
                 }
-                System.out.println("\n  --- Longest (Classic) Path from SCC #" + sccSourceNode + " ---");
-                System.out.println("  -> Critical Path Length: " + criticalPathLength);
-                if(criticalPathEndNode != -1) {
-                    System.out.println("  -> Path (in SCC-nodes): " + pathFinder.getPath(criticalPathEndNode));
-                }
-                System.out.println("  Metrics (LongestPath): \n" + lpMetrics);
+                result.criticalPathLength = criticalPathLength;
 
-            } catch (IOException e) {
-                System.err.println("Error: Could not read file " + filePath);
-                System.err.println(e.getMessage());
-            } catch (IllegalArgumentException e) {
-                System.err.println("Error: Could not parse file " + filePath);
-                System.err.println(e.getMessage());
+                allResults.add(result);
+                System.out.println("     ... OK");
+
+            } catch (Exception e) {
+                System.err.println("     ... Error during processing " + fileName + ": " + e.getMessage());
+                e.printStackTrace();
             }
         }
 
-        System.out.println("\n---------------------------------------------------");
-        System.out.println("--- BATCH TESTING COMPLETED ---");
+        System.out.println("\n--- BATCH TESTING COMPLETED ---");
+
+        ResultExporter.printAsMarkdownTable(allResults);
+        ResultExporter.exportToCSV(allResults, "analysis_results.csv");
     }
 }

@@ -39,6 +39,10 @@ public class Graph {
         return V;
     }
 
+    public int getE() {
+        return edges.size();
+    }
+
     public int getSource() {
         return source;
     }
@@ -46,4 +50,5 @@ public class Graph {
     public List<Edge> getEdges() {
         return edges;
     }
+
 }

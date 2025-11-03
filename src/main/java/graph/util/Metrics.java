@@ -11,4 +11,5 @@ public interface Metrics {
     long getCount(Operation op);
     Map<Operation, Long> getAllCounts();
     void reset();
+    double getElapsedTimeMillis();
 }

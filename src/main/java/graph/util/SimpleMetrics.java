@@ -36,6 +36,7 @@ public class SimpleMetrics implements Metrics {
         return this.elapsedTime;
     }
 
+    @Override
     public double getElapsedTimeMillis() {
         return (double) this.elapsedTime / TimeUnit.MILLISECONDS.toNanos(1);
     }
