@@ -93,4 +93,8 @@ public class TarjanSCC {
             sccs.add(currentScc);
         }
     }
+
+    public List<Integer> getSccs(int idx) {
+        return sccs.get(idx);
+    }
 }
