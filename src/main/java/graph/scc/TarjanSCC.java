@@ -1,8 +1,9 @@
-package com.alikhan_s.scc;
+package graph.scc;
 
-import com.alikhan_s.Graph;
-import com.alikhan_s.util.Metrics;
-import com.alikhan_s.util.Operation;
+import graph.Graph;
+import graph.Edge;
+import graph.util.Metrics;
+import graph.util.Operation;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Stack;
@@ -10,24 +11,19 @@ import java.util.Arrays;
 
 
 public class TarjanSCC {
-
     private int V;
-    private List<List<Integer>> adj;
+    private List<List<Edge>> adj;
     private int time;
-
-    private int[] index;    // Renamed from 'disc'
+    private int[] index;
     private int[] lowLink;
     private boolean[] onStack;
     private Stack<Integer> stack;
-
     private List<List<Integer>> sccs;
-
     private Metrics metrics;
 
-    public TarjanSCC() {
-    }
+    public TarjanSCC() {}
 
-    public List<List<Integer>> findSccs(Graph graph, Metrics metrics) {
+    public List<List<Integer>> findSccs (Graph graph, Metrics metrics) {
         this.metrics = metrics;
         this.metrics.reset();
         this.metrics.startTimer();
@@ -68,7 +64,9 @@ public class TarjanSCC {
         stack.push(u);
         onStack[u] = true;
 
-        for (int v : adj.get(u)) {
+        for (Edge edge : adj.get(u)) {
+            int v = edge.v;
+
             metrics.increment(Operation.DFS_EDGE_TRAVERSAL);
 
             if (index[v] == -1) {

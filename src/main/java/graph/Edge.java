@@ -1,4 +1,4 @@
-package com.alikhan_s;
+package graph;
 
 public class Edge {
     public final int u;

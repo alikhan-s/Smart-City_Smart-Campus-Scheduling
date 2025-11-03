@@ -1,4 +1,4 @@
-package com.alikhan_s.util;
+package graph.util;
 
 import java.util.Map;
 

@@ -1,8 +1,9 @@
-package com.alikhan_s.topo;
+package graph.topo;
 
-import com.alikhan_s.Graph;
-import com.alikhan_s.util.Metrics;
-import com.alikhan_s.util.Operation;
+import graph.Graph;
+import graph.Edge;
+import graph.util.Metrics;
+import graph.util.Operation;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -15,6 +16,8 @@ public class TopologicalSort {
     private Metrics metrics;
     private List<Integer> sortedOrder;
 
+    public TopologicalSort() {}
+
     public List<Integer> sort(Graph dag, Metrics metrics) {
         this.metrics = metrics;
         this.metrics.reset();
@@ -25,8 +28,8 @@ public class TopologicalSort {
         int[] inDegree = new int[V];
 
         for (int u = 0; u < V; u++) {
-            for (int v : dag.getAdj(u)) {
-                inDegree[v]++;
+            for (Edge edge : dag.getAdj(u)) {
+                inDegree[edge.v]++;
             }
         }
 
@@ -47,9 +50,9 @@ public class TopologicalSort {
             sortedOrder.add(u);
             visitedCount++;
 
-            for (int v : dag.getAdj(u)) {
+            for (Edge edge : dag.getAdj(u)) {
+                int v = edge.v;
                 inDegree[v]--;
-
                 if (inDegree[v] == 0) {
                     queue.add(v);
                     metrics.increment(Operation.TOPO_QUEUE_PUSH);

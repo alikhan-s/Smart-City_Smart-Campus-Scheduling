@@ -1,6 +1,7 @@
-package com.alikhan_s.util;
+package graph.util;
 
-import com.alikhan_s.Graph;
+import graph.Graph;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -8,9 +9,9 @@ import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
 public class GraphParser {
     private static final Pattern N_PATTERN = Pattern.compile("\"n\":\\s*(\\d+)");
+    private static final Pattern SOURCE_PATTERN = Pattern.compile("\"source\":\\s*(\\d+)");
     private static final Pattern EDGE_PATTERN = Pattern.compile(
             "\\{\"u\":\\s*(\\d+),\\s*\"v\":\\s*(\\d+),\\s*\"w\":\\s*(\\d+)\\}"
     );
@@ -24,28 +25,35 @@ public class GraphParser {
 
     private static Graph parse(String jsonContent) {
         int n = 0;
+        int source = 0;
 
         Matcher nMatcher = N_PATTERN.matcher(jsonContent);
         if (nMatcher.find()) {
             n = Integer.parseInt(nMatcher.group(1));
         } else {
-            throw new IllegalArgumentException("Could not find ‘n’ in JSON.");
+            throw new IllegalArgumentException("Could not find 'n' in JSON.");
+        }
+
+        Matcher sMatcher = SOURCE_PATTERN.matcher(jsonContent);
+        if (sMatcher.find()) {
+            source = Integer.parseInt(sMatcher.group(1));
+        } else {
+            System.err.println("Warning: 'source' not found in JSON, defaulting to 0.");
         }
 
         if (n <= 0) {
-            throw new IllegalArgumentException("'n' must be more than 0.");
+            throw new IllegalArgumentException("'n' must be > 0.");
         }
 
-        Graph graph = new Graph(n);
+        Graph graph = new Graph(n, source);
 
         int edgesStartIndex = jsonContent.indexOf("\"edges\":");
         if (edgesStartIndex == -1) {
             return graph;
         }
-
         int edgesEndIndex = jsonContent.lastIndexOf("]");
         if (edgesEndIndex == -1 || edgesEndIndex < edgesStartIndex) {
-            throw new IllegalArgumentException("Incorrect format of the ‘edges’ array in JSON.");
+            throw new IllegalArgumentException("Malformed 'edges' array in JSON.");
         }
 
         String edgesBlock = jsonContent.substring(edgesStartIndex, edgesEndIndex);

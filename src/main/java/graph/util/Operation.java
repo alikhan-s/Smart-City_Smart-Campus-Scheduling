@@ -1,4 +1,4 @@
-package com.alikhan_s.util;
+package graph.util;
 
 public enum Operation {
     // For SCC (Tarjan)
